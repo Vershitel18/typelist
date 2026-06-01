@@ -111,6 +111,9 @@ TEST_CASE("flatten") {
       std::is_same_v<tl::flatten<Tuple<TypeList<int>, TypeList<double>, TypeList<float>>>, Tuple<int, double, float>>
   );
   STATIC_REQUIRE(std::is_same_v<tl::flatten<TypeList<Tuple<int>, double, Tuple<float>>>, TypeList<int, double, float>>);
+
+  STATIC_REQUIRE(std::is_same_v<tl::flatten<TypeList<Pair<int, int>, Pair<int, int>>>, TypeList<int, int, int, int>>);
+  STATIC_REQUIRE(std::is_same_v<tl::flatten<TypeList<int, Pair<int, Pair<int, int>>>>, TypeList<int, int, int, int>>);
 }
 
 template <int N>
