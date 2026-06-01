@@ -4,10 +4,11 @@
 
 namespace ct::tl {
 
-template <typename... Types>
+template <typename...>
 struct TypeList {};
 
-// contains<Type, List> — возвращает true, если List содержит Type, иначе false;
+// contains<Type, List>
+
 template <typename, typename>
 struct is_same {
   static constexpr bool value = false;
@@ -18,7 +19,6 @@ struct is_same<Type, Type> {
   static constexpr bool value = true;
 };
 
-// вроде как нельзя было пользоваться std::is_same_v
 template <typename Type1, typename Type2>
 inline constexpr bool is_same_v = is_same<Type1, Type2>::value;
 
@@ -33,8 +33,7 @@ struct contains_impl<Type, List<Types...>> {
 template <typename Type, typename List>
 inline constexpr bool contains = contains_impl<Type, List>::value;
 
-// flip_all<List> — принимает список пар типов (пара — тайплист размера 2),
-// возвращает список, в котором у каждой пары элементы переставлены местами;
+// flip_all<List>
 
 template <typename Pair>
 struct flip_pair;
@@ -62,9 +61,6 @@ List<Types1..., Types2...> operator+(List<Types1...>, List<Types2...>);
 
 template <typename... Lists>
 using concat_fast = decltype((Lists{} + ...));
-
-// index_of_unique<Type, List> — возвращает индекс единственного вхождения Type в
-// List (если вхождение не единственное, вызов должен приводить к ошибке компиляции);
 
 template <std::size_t VALUE>
 struct index {
@@ -176,73 +172,61 @@ struct flatten_impl_repack<List<Types...>> {
 template <typename List>
 using flatten = flatten_impl_repack<List>::type;
 
-// merge_sort<Compare, List> — возвращает копию List, но с элементами,
-// отсортированными компаратором Compare (он принимает два типа, и возвращает true,
-// если первый должен идти до второго).
+template <bool B>
+struct conditional_impl;
 
-// Можно было бы вызывать enumirate и потом filter, но после этого остался бы лист пар,
-// а значит нужна была бы ещё одна метафункция, которая бы возвращала списку изначальный
-// вид(List<Pair<size_t, type>...> -> List<type...>)
-template <bool Cond, template <typename...> typename List, typename Type>
-struct element_choice;
-
-template <template <typename...> typename List, typename Type>
-struct element_choice<false, List, Type> {
-  using type = List<>;
+template <>
+struct conditional_impl<true> {
+  template <typename T, typename F>
+  using value = T;
 };
 
-template <template <typename...> typename List, typename Type>
-struct element_choice<true, List, Type> {
-  using type = List<Type>;
+template <>
+struct conditional_impl<false> {
+  template <typename T, typename F>
+  using value = F;
 };
+
+template <bool B, typename T, typename F>
+using conditional = conditional_impl<B>::template value<T, F>;
 
 template <bool First, std::size_t N, typename List, typename Seq>
 struct index_choice;
 
 template <std::size_t N, template <typename...> typename List, typename... Types, std::size_t... Indexes>
 struct index_choice<true, N, List<Types...>, std::index_sequence<Indexes...>> {
-  using type = concat_fast<typename element_choice<(Indexes < N), List, Types>::type...>;
+  using type = concat_fast<conditional<(Indexes < N), List<Types>, List<>>...>;
 };
 
 template <std::size_t N, template <typename...> typename List, typename... Types, std::size_t... Indexes>
 struct index_choice<false, N, List<Types...>, std::index_sequence<Indexes...>> {
-  using type = concat_fast<typename element_choice<(Indexes >= N), List, Types>::type...>;
+  using type = concat_fast<conditional<(Indexes >= N), List<Types>, List<>>...>;
 };
 
-template <std::size_t N, typename List>
-struct take_impl;
+template <bool First, std::size_t N, typename List>
+struct select_index;
 
-template <std::size_t N, template <typename...> typename List, typename... Types>
+template <bool First, std::size_t N, template <typename...> typename List, typename... Types>
   requires (N > 0)
-struct take_impl<N, List<Types...>> {
-  using type = index_choice<true, N, List<Types...>, std::make_index_sequence<sizeof...(Types)>>::type;
+struct select_index<First, N, List<Types...>> {
+  using type = index_choice<First, N, List<Types...>, std::make_index_sequence<sizeof...(Types)>>::type;
 };
 
 template <template <typename...> typename List, typename... Types>
-struct take_impl<0, List<Types...>> {
+struct select_index<true, 0, List<Types...>> {
   using type = List<>;
 };
 
-template <std::size_t N, typename List>
-using take = take_impl<N, List>::type;
-
-template <std::size_t N, typename List>
-struct drop_impl;
-
-template <std::size_t N, template <typename...> typename List, typename... Types>
-  requires (N > 0)
-struct drop_impl<N, List<Types...>> {
-  using type = index_choice<false, N, List<Types...>, std::make_index_sequence<sizeof...(Types)>>::type;
-  ;
-};
-
 template <template <typename...> typename List, typename... Types>
-struct drop_impl<0, List<Types...>> {
+struct select_index<false, 0, List<Types...>> {
   using type = List<Types...>;
 };
 
 template <std::size_t N, typename List>
-using drop = drop_impl<N, List>::type;
+using take = select_index<true, N, List>::type;
+
+template <std::size_t N, typename List>
+using drop = select_index<false, N, List>::type;
 
 template <template <typename, typename> typename Compare, typename Left, typename Right>
 struct merge;
@@ -296,7 +280,6 @@ struct merge<Compare, List<Head1, Tail1...>, List<Head2, Tail2...>> {
 template <template <typename, typename> typename Compare, typename List>
 struct merge_sort_impl;
 
-// base recursion
 template <template <typename, typename> typename Compare, template <typename...> typename List, typename Type>
 struct merge_sort_impl<Compare, List<Type>> {
   using type = List<Type>;
