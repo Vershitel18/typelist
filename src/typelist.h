@@ -1,5 +1,4 @@
 #pragma once
-#include <type_traits>
 #include <utility>
 
 namespace ct::tl {
@@ -60,7 +59,7 @@ template <template <typename...> typename List, typename... Types1, typename... 
 List<Types1..., Types2...> operator+(List<Types1...>, List<Types2...>);
 
 template <typename... Lists>
-using concat_fast = decltype((Lists{} + ...));
+using concat = decltype((Lists{} + ...));
 
 template <std::size_t VALUE>
 struct index {
@@ -109,10 +108,10 @@ template <typename Map, typename Key>
 using map_find = map_find_impl<Map, Key>::type;
 
 template <typename Pair>
-struct index_in;
+struct index_in_list;
 
 template <template <typename...> typename List, typename First, typename Second>
-struct index_in<List<First, Second>> {
+struct index_in_list<List<First, Second>> {
   static constexpr std::size_t index = First::value;
 };
 
@@ -121,7 +120,7 @@ struct index_of_unique_impl;
 
 template <typename Type, template <typename...> typename List, typename... Types>
 struct index_of_unique_impl<Type, List<Types...>> {
-  static constexpr std::size_t index = index_in<map_find<enumerate<List<Types...>>, Type>>::index;
+  static constexpr std::size_t index = index_in_list<map_find<enumerate<List<Types...>>, Type>>::index;
 };
 
 template <typename Type, typename List>
@@ -142,7 +141,7 @@ struct flatten_one<List<Types...>> {
 
 template <template <typename...> typename List, typename... ChildTypes>
 struct flatten_impl<List<ChildTypes...>> {
-  using type = concat_fast<typename flatten_one<ChildTypes>::type...>;
+  using type = concat<typename flatten_one<ChildTypes>::type...>;
 };
 
 template <template <typename...> typename List>
@@ -195,26 +194,25 @@ struct index_choice;
 
 template <std::size_t N, template <typename...> typename List, typename... Types, std::size_t... Indexes>
 struct index_choice<true, N, List<Types...>, std::index_sequence<Indexes...>> {
-  using type = concat_fast<conditional<(Indexes < N), List<Types>, List<>>...>;
+  using type = concat<conditional<(Indexes < N), List<Types>, List<>>...>;
 };
 
 template <std::size_t N, template <typename...> typename List, typename... Types, std::size_t... Indexes>
 struct index_choice<false, N, List<Types...>, std::index_sequence<Indexes...>> {
-  using type = concat_fast<conditional<(Indexes >= N), List<Types>, List<>>...>;
+  using type = concat<conditional<(Indexes >= N), List<Types>, List<>>...>;
 };
 
 template <bool First, std::size_t N, typename List>
 struct select_index;
 
-template <bool First, std::size_t N, template <typename...> typename List, typename... Types>
-  requires (N > 0)
-struct select_index<First, N, List<Types...>> {
-  using type = index_choice<First, N, List<Types...>, std::make_index_sequence<sizeof...(Types)>>::type;
-};
-
 template <template <typename...> typename List, typename... Types>
 struct select_index<true, 0, List<Types...>> {
   using type = List<>;
+};
+
+template <bool First, std::size_t N, template <typename...> typename List, typename... Types>
+struct select_index<First, N, List<Types...>> {
+  using type = index_choice<First, N, List<Types...>, std::make_index_sequence<sizeof...(Types)>>::type;
 };
 
 template <template <typename...> typename List, typename... Types>
@@ -252,7 +250,7 @@ template <
     typename Head2,
     typename... Tail2>
 struct merge_choice<false, Compare, List<Head1, Tail1...>, List<Head2, Tail2...>> {
-  using type = concat_fast<List<Head1>, typename merge<Compare, List<Tail1...>, List<Head2, Tail2...>>::type>;
+  using type = concat<List<Head1>, typename merge<Compare, List<Tail1...>, List<Head2, Tail2...>>::type>;
 };
 
 template <
@@ -263,7 +261,7 @@ template <
     typename Head2,
     typename... Tail2>
 struct merge_choice<true, Compare, List<Head1, Tail1...>, List<Head2, Tail2...>> {
-  using type = concat_fast<List<Head2>, typename merge<Compare, List<Head1, Tail1...>, List<Tail2...>>::type>;
+  using type = concat<List<Head2>, typename merge<Compare, List<Head1, Tail1...>, List<Tail2...>>::type>;
 };
 
 template <
@@ -291,7 +289,6 @@ struct merge_sort_impl<Compare, List<>> {
 };
 
 template <template <typename, typename> typename Compare, template <typename...> typename List, typename... Types>
-  requires (count<List<Types...>> > 1)
 struct merge_sort_impl<Compare, List<Types...>> {
   using left = merge_sort_impl<Compare, take<count<List<Types...>> / 2, List<Types...>>>::type;
   using right = merge_sort_impl<Compare, drop<count<List<Types...>> / 2, List<Types...>>>::type;
