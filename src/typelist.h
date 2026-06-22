@@ -7,30 +7,11 @@ template <typename...>
 struct TypeList {};
 
 // contains<Type, List>
-
-template <typename, typename>
-struct is_same {
-  static constexpr bool value = false;
-};
-
-template <typename Type>
-struct is_same<Type, Type> {
-  static constexpr bool value = true;
-};
-
-template <typename Type1, typename Type2>
-inline constexpr bool is_same_v = is_same<Type1, Type2>::value;
-
 template <typename Type, typename List>
-struct contains_impl;
+inline constexpr bool contains = false;
 
 template <typename Type, template <typename...> typename List, typename... Types>
-struct contains_impl<Type, List<Types...>> {
-  static constexpr bool value = (is_same_v<Type, Types> || ...);
-};
-
-template <typename Type, typename List>
-inline constexpr bool contains = contains_impl<Type, List>::value;
+inline constexpr bool contains<Type, List<Types...>> = (std::is_same_v<Type, Types> || ...);
 
 // flip_all<List>
 
@@ -54,12 +35,15 @@ template <typename List>
 using flip_all = flip_all_impl<List>::type;
 
 // Concat many (fast)
-
+namespace details {
 template <template <typename...> typename List, typename... Types1, typename... Types2>
 List<Types1..., Types2...> operator+(List<Types1...>, List<Types2...>);
 
 template <typename... Lists>
-using concat = decltype((Lists{} + ...));
+using concat = std::remove_reference_t<decltype((std::declval<Lists>() + ...))>;
+} // namespace details
+
+using details::concat;
 
 template <std::size_t VALUE>
 struct index {
@@ -67,15 +51,10 @@ struct index {
 };
 
 template <typename List>
-struct count_impl;
+inline constexpr std::size_t count = 0;
 
 template <template <typename...> typename List, typename... Types>
-struct count_impl<List<Types...>> {
-  static constexpr std::size_t value = sizeof...(Types);
-};
-
-template <typename List>
-inline constexpr std::size_t count = count_impl<List>::value;
+inline constexpr std::size_t count<List<Types...>> = sizeof...(Types);
 
 template <typename List, typename Seq>
 struct enumerate_impl;
